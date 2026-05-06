@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpaceStays Akquise Cockpit</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <strong>SpaceStays</strong>
+            <span>Akquise Cockpit</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard" title="Dashboard">
+            <span class="icon">⌂</span><span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-view="leads" title="Leads">
+            <span class="icon">◎</span><span>Leads</span>
+          </button>
+          <button class="nav-item" data-view="apartments" title="Apartments">
+            <span class="icon">▦</span><span>Apartments</span>
+          </button>
+          <button class="nav-item" data-view="campaigns" title="Kampagnen">
+            <span class="icon">✉</span><span>Kampagnen</span>
+          </button>
+          <button class="nav-item" data-view="offer" title="Angebot">
+            <span class="icon">□</span><span>Angebot</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <strong>Nächster Fokus</strong>
+          <span id="nextFocus">A-Leads heute kontaktieren</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Monteurvermietung NRW</p>
+            <h1 id="viewTitle">Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" id="exportCsvBtn" title="Leads als CSV exportieren">⇩</button>
+            <button class="primary-btn" id="addLeadBtn"><span>+</span> Lead anlegen</button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboardView">
+          <div class="kpi-grid">
+            <div class="metric">
+              <span>Offene Leads</span>
+              <strong id="kpiOpen">0</strong>
+            </div>
+            <div class="metric">
+              <span>A-Priorität</span>
+              <strong id="kpiA">0</strong>
+            </div>
+            <div class="metric">
+              <span>Follow-ups fällig</span>
+              <strong id="kpiDue">0</strong>
+            </div>
+            <div class="metric">
+              <span>Betten gesamt</span>
+              <strong id="kpiBeds">0</strong>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Heute bearbeiten</h2>
+                <button class="ghost-btn" data-view-jump="leads">Öffnen</button>
+              </div>
+              <div class="task-list" id="todayTasks"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Pipeline</h2>
+                <span class="muted" id="pipelineTotal"></span>
+              </div>
+              <div class="pipeline-bars" id="pipelineBars"></div>
+            </section>
+          </div>
+
+          <section class="panel full-width">
+            <div class="panel-head">
+              <h2>Kapazität nach Standort</h2>
+              <button class="ghost-btn" data-view-jump="apartments">Apartments</button>
+            </div>
+            <div class="location-strip" id="locationStrip"></div>
+          </section>
+        </section>
+
+        <section class="view" id="leadsView">
+          <div class="toolbar">
+            <label class="search-field">
+              <span>⌕</span>
+              <input id="leadSearch" type="search" placeholder="Firma, Branche, Land, Region suchen" />
+            </label>
+            <select id="statusFilter">
+              <option value="">Alle Status</option>
+              <option>Neu</option>
+              <option>Kontaktiert</option>
+              <option>Interessiert</option>
+              <option>Angebot gesendet</option>
+              <option>Kunde</option>
+              <option>Absage</option>
+            </select>
+            <select id="priorityFilter">
+              <option value="">Alle Prioritäten</option>
+              <option>A - Sofort</option>
+              <option>B - Warm</option>
+              <option>C - Testen</option>
+              <option>D - Niedrig</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Firma</th>
+                  <th>Land</th>
+                  <th>Branche</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Follow-up</th>
+                  <th>Kontakt</th>
+                </tr>
+              </thead>
+              <tbody id="leadRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="view" id="apartmentsView">
+          <div class="toolbar split">
+            <div>
+              <h2>Apartment-Bestand</h2>
+              <p class="muted">Startdaten, die du später pro Objekt exakt pflegen kannst.</p>
+            </div>
+            <button class="secondary-btn" id="addApartmentBtn"><span>+</span> Apartment</button>
+          </div>
+          <div class="apartment-grid" id="apartmentGrid"></div>
+        </section>
+
+        <section class="view" id="campaignsView">
+          <div class="campaign-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Mailvorlagen</h2>
+                <select id="templateLanguage">
+                  <option value="DE">Deutsch</option>
+                  <option value="EN">Englisch</option>
+                  <option value="PL">Polnisch</option>
+                  <option value="RO">Rumänisch</option>
+                </select>
+              </div>
+              <label class="stacked">
+                Betreff
+                <input id="templateSubject" />
+              </label>
+              <label class="stacked">
+                Nachricht
+                <textarea id="templateBody" rows="14"></textarea>
+              </label>
+              <button class="primary-btn" id="copyTemplateBtn">Vorlage kopieren</button>
+            </section>
+
+            <section class="panel">
+              <h2>Suchlogik</h2>
+              <div class="search-list" id="searchIdeas"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="offerView">
+          <div class="offer-builder">
+            <section class="panel">
+              <h2>Angebot vorbereiten</h2>
+              <div class="form-grid">
+                <label class="stacked">Firma<input id="offerCompany" value="Beispiel Bau GmbH" /></label>
+                <label class="stacked">Personen<input id="offerPeople" type="number" min="1" value="8" /></label>
+                <label class="stacked">Start<input id="offerStart" type="date" /></label>
+                <label class="stacked">Nächte<input id="offerNights" type="number" min="1" value="21" /></label>
+                <label class="stacked">Region
+                  <select id="offerRegion">
+                    <option>Ruhrgebiet</option>
+                    <option>Rheinland</option>
+                    <option>Beides</option>
+                  </select>
+                </label>
+                <label class="stacked">Preis p. P. / Nacht<input id="offerPrice" type="number" min="1" value="25" /></label>
+              </div>
+            </section>
+            <section class="panel offer-preview">
+              <div class="panel-head">
+                <h2>Vorschlag</h2>
+                <button class="ghost-btn" id="copyOfferBtn">Kopieren</button>
+              </div>
+              <pre id="offerText"></pre>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="leadDialog">
+      <form method="dialog" class="dialog-card" id="leadForm">
+        <div class="panel-head">
+          <h2>Lead anlegen</h2>
+          <button class="icon-btn" value="cancel" title="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label class="stacked">Firma<input name="company" required /></label>
+          <label class="stacked">Land<input name="country" value="Deutschland" /></label>
+          <label class="stacked">Region<input name="region" value="Ruhrgebiet" /></label>
+          <label class="stacked">Branche<input name="industry" value="Bauunternehmen" /></label>
+          <label class="stacked">E-Mail<input name="email" type="email" /></label>
+          <label class="stacked">Telefon<input name="phone" /></label>
+          <label class="stacked">Teamgröße<input name="teamSize" type="number" min="0" value="4" /></label>
+          <label class="stacked">Bedarfssignal<input name="signal" placeholder="z. B. Monteure bundesweit" /></label>
+        </div>
+        <menu>
+          <button class="secondary-btn" value="cancel">Abbrechen</button>
+          <button class="primary-btn" value="default">Speichern</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
