@@ -33,6 +33,9 @@
           <button class="nav-item" data-view="offer" title="Angebot">
             <span class="icon">□</span><span>Angebot</span>
           </button>
+          <button class="nav-item" data-view="system" title="System">
+            <span class="icon">⚙</span><span>System</span>
+          </button>
         </nav>
 
         <div class="sidebar-note">
@@ -48,6 +51,7 @@
             <h1 id="viewTitle">Dashboard</h1>
           </div>
           <div class="topbar-actions">
+            <span class="sync-badge" id="syncBadge">Lokal</span>
             <button class="icon-btn" id="exportCsvBtn" title="Leads als CSV exportieren">⇩</button>
             <button class="primary-btn" id="addLeadBtn"><span>+</span> Lead anlegen</button>
           </div>
@@ -211,6 +215,75 @@
             </section>
           </div>
         </section>
+
+        <section class="view" id="systemView">
+          <div class="system-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Datenbank</h2>
+                <span class="pill" id="systemMode">Lokaler Modus</span>
+              </div>
+              <p class="muted block-copy">
+                Solange hier keine Supabase-Verbindung gespeichert ist, arbeitet das Cockpit nur in diesem Browser.
+                Mit Supabase werden Leads und Apartments dauerhaft gespeichert.
+              </p>
+
+              <label class="stacked">
+                Supabase Project URL
+                <input id="supabaseUrl" placeholder="https://xxxxx.supabase.co" />
+              </label>
+              <label class="stacked">
+                Supabase anon public key
+                <input id="supabaseAnonKey" type="password" placeholder="eyJhbGciOi..." />
+              </label>
+              <div class="button-row">
+                <button class="primary-btn" id="saveSupabaseBtn">Verbindung speichern</button>
+                <button class="secondary-btn" id="clearSupabaseBtn">Trennen</button>
+              </div>
+              <p class="status-line" id="connectionStatus">Noch nicht verbunden.</p>
+            </section>
+
+            <section class="panel">
+              <h2>Login</h2>
+              <p class="muted block-copy">
+                Der Datenbankzugriff ist auf SpaceStays-Nutzer begrenzt. Der Magic-Link muss an die erlaubte Mailadresse gehen.
+              </p>
+              <label class="stacked">
+                E-Mail
+                <input id="loginEmail" type="email" value="info@spacestays.de" />
+              </label>
+              <div class="button-row">
+                <button class="primary-btn" id="sendLoginBtn">Magic-Link senden</button>
+                <button class="secondary-btn" id="signOutBtn">Abmelden</button>
+              </div>
+              <p class="status-line" id="loginStatus">Nicht angemeldet.</p>
+            </section>
+
+            <section class="panel">
+              <h2>Synchronisation</h2>
+              <p class="muted block-copy">
+                Nach dem ersten Login kannst du deine aktuellen Browser-Daten in Supabase speichern.
+                Danach werden Statuswechsel, neue Leads und Vorlagen automatisch mitgespeichert.
+              </p>
+              <div class="button-row vertical">
+                <button class="primary-btn" id="pushToSupabaseBtn">Lokale Daten in Supabase speichern</button>
+                <button class="secondary-btn" id="pullFromSupabaseBtn">Daten aus Supabase laden</button>
+              </div>
+              <p class="status-line" id="syncStatus">Wartet auf Verbindung.</p>
+            </section>
+
+            <section class="panel">
+              <h2>Nächste Automationen</h2>
+              <div class="system-checklist">
+                <span>✓ GitHub Pages live</span>
+                <span>✓ Gmail in Codex verbunden</span>
+                <span>○ Supabase-Datenbank verbinden</span>
+                <span>○ Gmail-Entwürfe über Backend vorbereiten</span>
+                <span>○ tägliche Follow-up-Prüfung aktivieren</span>
+              </div>
+            </section>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -237,6 +310,7 @@
       </form>
     </dialog>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./app.js"></script>
   </body>
 </html>

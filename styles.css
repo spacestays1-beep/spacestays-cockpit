@@ -184,6 +184,24 @@ h2 {
   gap: 10px;
 }
 
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--soft-gold);
+  color: #7d5510;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.sync-badge.online {
+  background: var(--soft-green);
+  color: var(--green);
+}
+
 .primary-btn,
 .secondary-btn,
 .ghost-btn,
@@ -514,7 +532,8 @@ tr:last-child td {
 }
 
 .campaign-layout,
-.offer-builder {
+.offer-builder,
+.system-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
   gap: 16px;
@@ -565,6 +584,45 @@ tr:last-child td {
   font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.block-copy {
+  margin-top: 12px;
+  line-height: 1.45;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.button-row.vertical {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.status-line {
+  min-height: 22px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.system-checklist {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.system-checklist span {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  color: #344149;
+}
+
 dialog {
   border: 0;
   border-radius: 8px;
@@ -609,7 +667,7 @@ menu {
   }
 
   .nav-list {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .nav-item {
@@ -637,7 +695,8 @@ menu {
   .location-strip,
   .apartment-grid,
   .campaign-layout,
-  .offer-builder {
+  .offer-builder,
+  .system-grid {
     grid-template-columns: 1fr;
   }
 

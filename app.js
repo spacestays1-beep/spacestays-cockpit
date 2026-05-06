@@ -1,4 +1,5 @@
 const storageKey = "spacestays-cockpit-v1";
+const configKey = "spacestays-cockpit-config-v1";
 
 const seed = {
   leads: [
@@ -98,6 +99,10 @@ const searchIdeas = [
 ];
 
 let state = loadState();
+let config = loadConfig();
+let supabaseClient = null;
+let currentSession = null;
+let remoteSaveTimer = null;
 
 const views = {
   dashboard: document.querySelector("#dashboardView"),
@@ -105,6 +110,7 @@ const views = {
   apartments: document.querySelector("#apartmentsView"),
   campaigns: document.querySelector("#campaignsView"),
   offer: document.querySelector("#offerView"),
+  system: document.querySelector("#systemView"),
 };
 
 const titles = {
@@ -113,35 +119,52 @@ const titles = {
   apartments: "Apartments",
   campaigns: "Kampagnen",
   offer: "Angebot",
+  system: "System",
 };
 
-document.querySelectorAll(".nav-item").forEach((button) => {
-  button.addEventListener("click", () => showView(button.dataset.view));
-});
+bindEvents();
+initApp();
 
-document.querySelectorAll("[data-view-jump]").forEach((button) => {
-  button.addEventListener("click", () => showView(button.dataset.viewJump));
-});
+function bindEvents() {
+  document.querySelectorAll(".nav-item").forEach((button) => {
+    button.addEventListener("click", () => showView(button.dataset.view));
+  });
 
-document.querySelector("#leadSearch").addEventListener("input", renderLeads);
-document.querySelector("#statusFilter").addEventListener("change", renderLeads);
-document.querySelector("#priorityFilter").addEventListener("change", renderLeads);
-document.querySelector("#addLeadBtn").addEventListener("click", () => document.querySelector("#leadDialog").showModal());
-document.querySelector("#leadForm").addEventListener("submit", addLead);
-document.querySelector("#exportCsvBtn").addEventListener("click", exportCsv);
-document.querySelector("#templateLanguage").addEventListener("change", renderTemplate);
-document.querySelector("#templateSubject").addEventListener("input", saveTemplate);
-document.querySelector("#templateBody").addEventListener("input", saveTemplate);
-document.querySelector("#copyTemplateBtn").addEventListener("click", () => copyText(document.querySelector("#templateBody").value));
-document.querySelector("#copyOfferBtn").addEventListener("click", () => copyText(document.querySelector("#offerText").textContent));
-document.querySelector("#addApartmentBtn").addEventListener("click", addApartment);
-["offerCompany", "offerPeople", "offerStart", "offerNights", "offerRegion", "offerPrice"].forEach((id) => {
-  document.querySelector(`#${id}`).addEventListener("input", renderOffer);
-});
+  document.querySelectorAll("[data-view-jump]").forEach((button) => {
+    button.addEventListener("click", () => showView(button.dataset.viewJump));
+  });
 
-document.querySelector("#offerStart").value = todayOffset(3);
+  document.querySelector("#leadSearch").addEventListener("input", renderLeads);
+  document.querySelector("#statusFilter").addEventListener("change", renderLeads);
+  document.querySelector("#priorityFilter").addEventListener("change", renderLeads);
+  document.querySelector("#addLeadBtn").addEventListener("click", () => document.querySelector("#leadDialog").showModal());
+  document.querySelector("#leadForm").addEventListener("submit", addLead);
+  document.querySelector("#exportCsvBtn").addEventListener("click", exportCsv);
+  document.querySelector("#templateLanguage").addEventListener("change", renderTemplate);
+  document.querySelector("#templateSubject").addEventListener("input", saveTemplate);
+  document.querySelector("#templateBody").addEventListener("input", saveTemplate);
+  document.querySelector("#copyTemplateBtn").addEventListener("click", () => copyText(document.querySelector("#templateBody").value));
+  document.querySelector("#copyOfferBtn").addEventListener("click", () => copyText(document.querySelector("#offerText").textContent));
+  document.querySelector("#addApartmentBtn").addEventListener("click", addApartment);
+  document.querySelector("#saveSupabaseBtn").addEventListener("click", saveSupabaseConfig);
+  document.querySelector("#clearSupabaseBtn").addEventListener("click", clearSupabaseConfig);
+  document.querySelector("#sendLoginBtn").addEventListener("click", sendMagicLink);
+  document.querySelector("#signOutBtn").addEventListener("click", signOut);
+  document.querySelector("#pushToSupabaseBtn").addEventListener("click", pushToSupabase);
+  document.querySelector("#pullFromSupabaseBtn").addEventListener("click", pullFromSupabase);
 
-renderAll();
+  ["offerCompany", "offerPeople", "offerStart", "offerNights", "offerRegion", "offerPrice"].forEach((id) => {
+    document.querySelector(`#${id}`).addEventListener("input", renderOffer);
+  });
+}
+
+async function initApp() {
+  document.querySelector("#offerStart").value = todayOffset(3);
+  document.querySelector("#supabaseUrl").value = config.supabaseUrl || "";
+  document.querySelector("#supabaseAnonKey").value = config.supabaseAnonKey || "";
+  renderAll();
+  await initSupabase();
+}
 
 function todayOffset(days) {
   const date = new Date();
@@ -159,8 +182,23 @@ function loadState() {
   }
 }
 
-function persist() {
+function loadConfig() {
+  const raw = localStorage.getItem(configKey);
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function persist(options = {}) {
   localStorage.setItem(storageKey, JSON.stringify(state));
+  if (options.remote !== false) scheduleRemoteSave();
+}
+
+function persistConfig() {
+  localStorage.setItem(configKey, JSON.stringify(config));
 }
 
 function renderAll() {
@@ -170,6 +208,7 @@ function renderAll() {
   renderTemplate();
   renderSearchIdeas();
   renderOffer();
+  renderSystemStatus();
 }
 
 function showView(name) {
@@ -239,7 +278,7 @@ function renderDashboard() {
 
 function taskTemplate(lead) {
   return `<div class="task">
-    <div><strong>${lead.company}</strong><span>${lead.industry} · ${lead.country} · ${lead.signal || "Signal ergänzen"}</span></div>
+    <div><strong>${escapeHtml(lead.company)}</strong><span>${escapeHtml(lead.industry)} · ${escapeHtml(lead.country)} · ${escapeHtml(lead.signal || "Signal ergänzen")}</span></div>
     <span class="pill ${isDue(lead) ? "gold" : ""}">${priority(lead.score)}</span>
   </div>`;
 }
@@ -309,7 +348,7 @@ function renderApartments() {
 
 function renderTemplate() {
   const language = document.querySelector("#templateLanguage").value;
-  const template = state.templates[language];
+  const template = state.templates[language] || seed.templates.DE;
   document.querySelector("#templateSubject").value = template.subject;
   document.querySelector("#templateBody").value = template.body;
 }
@@ -354,7 +393,7 @@ function addLead(event) {
   event.preventDefault();
   const form = new FormData(event.target);
   const lead = {
-    id: `L-${String(state.leads.length + 1).padStart(4, "0")}`,
+    id: nextLeadId(),
     company: form.get("company"),
     country: form.get("country"),
     region: form.get("region"),
@@ -395,6 +434,14 @@ function addApartment() {
   renderAll();
 }
 
+function nextLeadId() {
+  const max = state.leads.reduce((highest, lead) => {
+    const number = Number(String(lead.id || "").replace(/\D/g, ""));
+    return Number.isFinite(number) ? Math.max(highest, number) : highest;
+  }, 0);
+  return `L-${String(max + 1).padStart(4, "0")}`;
+}
+
 function exportCsv() {
   const headers = ["Firma", "Land", "Region", "Branche", "E-Mail", "Telefon", "Status", "Follow-up", "Score", "Priorität", "Signal"];
   const rows = state.leads.map((lead) => [
@@ -422,6 +469,251 @@ function exportCsv() {
 
 function csvCell(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+async function initSupabase() {
+  supabaseClient = null;
+  currentSession = null;
+
+  if (!config.supabaseUrl || !config.supabaseAnonKey) {
+    renderSystemStatus("Noch nicht verbunden.");
+    return;
+  }
+
+  if (!window.supabase?.createClient) {
+    renderSystemStatus("Supabase-Bibliothek konnte nicht geladen werden. Netzwerk prüfen.");
+    return;
+  }
+
+  try {
+    supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+    currentSession = data.session;
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      currentSession = session;
+      renderSystemStatus();
+      if (session) pullFromSupabase({ silent: true });
+    });
+    renderSystemStatus();
+    if (currentSession) await pullFromSupabase({ silent: true });
+  } catch (error) {
+    renderSystemStatus(`Verbindung fehlgeschlagen: ${error.message}`);
+  }
+}
+
+function isRemoteReady() {
+  return Boolean(supabaseClient && currentSession);
+}
+
+function renderSystemStatus(message) {
+  const badge = document.querySelector("#syncBadge");
+  const mode = document.querySelector("#systemMode");
+  const connection = document.querySelector("#connectionStatus");
+  const login = document.querySelector("#loginStatus");
+  const sync = document.querySelector("#syncStatus");
+
+  if (!badge || !mode || !connection || !login || !sync) return;
+
+  badge.classList.toggle("online", isRemoteReady());
+  badge.textContent = isRemoteReady() ? "Supabase" : supabaseClient ? "Login offen" : "Lokal";
+  mode.textContent = isRemoteReady() ? "Supabase aktiv" : "Lokaler Modus";
+  mode.classList.toggle("blue", Boolean(supabaseClient && !currentSession));
+
+  if (message) connection.textContent = message;
+  else if (!config.supabaseUrl) connection.textContent = "Noch nicht verbunden.";
+  else if (!supabaseClient) connection.textContent = "Supabase-Konfiguration gespeichert, aber Client nicht bereit.";
+  else connection.textContent = "Supabase-Konfiguration geladen.";
+
+  login.textContent = currentSession?.user?.email ? `Angemeldet als ${currentSession.user.email}` : "Nicht angemeldet.";
+  sync.textContent = isRemoteReady() ? "Automatische Speicherung aktiv." : "Wartet auf Supabase-Login.";
+}
+
+async function saveSupabaseConfig() {
+  config = {
+    supabaseUrl: document.querySelector("#supabaseUrl").value.trim(),
+    supabaseAnonKey: document.querySelector("#supabaseAnonKey").value.trim(),
+  };
+  persistConfig();
+  renderSystemStatus("Verbindung wird geprüft...");
+  await initSupabase();
+}
+
+function clearSupabaseConfig() {
+  config = {};
+  localStorage.removeItem(configKey);
+  supabaseClient = null;
+  currentSession = null;
+  document.querySelector("#supabaseUrl").value = "";
+  document.querySelector("#supabaseAnonKey").value = "";
+  renderSystemStatus("Supabase getrennt. Lokaler Modus aktiv.");
+}
+
+async function sendMagicLink() {
+  if (!supabaseClient) await initSupabase();
+  if (!supabaseClient) {
+    renderSystemStatus("Bitte zuerst Supabase Project URL und anon key speichern.");
+    return;
+  }
+
+  const email = document.querySelector("#loginEmail").value.trim();
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+  });
+
+  document.querySelector("#loginStatus").textContent = error
+    ? `Login-Link fehlgeschlagen: ${error.message}`
+    : `Magic-Link wurde an ${email} gesendet.`;
+}
+
+async function signOut() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  currentSession = null;
+  renderSystemStatus("Abgemeldet. Lokaler Modus aktiv.");
+}
+
+function scheduleRemoteSave() {
+  if (!isRemoteReady()) return;
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = setTimeout(() => {
+    pushToSupabase({ silent: true });
+  }, 700);
+}
+
+async function pushToSupabase(options = {}) {
+  if (!isRemoteReady()) {
+    if (!options.silent) document.querySelector("#syncStatus").textContent = "Bitte zuerst mit Supabase einloggen.";
+    return;
+  }
+
+  try {
+    const leadRows = state.leads.map(toDbLead);
+    const apartmentRows = state.apartments.map(toDbApartment);
+    const templateRows = Object.entries(state.templates).map(([language, template]) => ({
+      language,
+      subject: template.subject,
+      body: template.body,
+    }));
+
+    await throwOnError(supabaseClient.from("leads").upsert(leadRows));
+    await throwOnError(supabaseClient.from("apartments").upsert(apartmentRows));
+    await throwOnError(supabaseClient.from("mail_templates").upsert(templateRows));
+    if (!options.silent) document.querySelector("#syncStatus").textContent = "In Supabase gespeichert.";
+  } catch (error) {
+    document.querySelector("#syncStatus").textContent = `Speichern fehlgeschlagen: ${error.message}`;
+  }
+}
+
+async function pullFromSupabase(options = {}) {
+  if (!isRemoteReady()) {
+    if (!options.silent) document.querySelector("#syncStatus").textContent = "Bitte zuerst mit Supabase einloggen.";
+    return;
+  }
+
+  try {
+    const leadsResult = await supabaseClient.from("leads").select("*").order("created_at", { ascending: false });
+    const apartmentsResult = await supabaseClient.from("apartments").select("*").order("city", { ascending: true });
+    const templatesResult = await supabaseClient.from("mail_templates").select("*").order("language", { ascending: true });
+    if (leadsResult.error) throw leadsResult.error;
+    if (apartmentsResult.error) throw apartmentsResult.error;
+    if (templatesResult.error) throw templatesResult.error;
+
+    const remoteLeads = leadsResult.data.map(fromDbLead);
+    const remoteApartments = apartmentsResult.data.map(fromDbApartment);
+    const remoteTemplates = templatesFromRows(templatesResult.data);
+
+    state = {
+      leads: remoteLeads.length ? remoteLeads : state.leads,
+      apartments: remoteApartments.length ? remoteApartments : state.apartments,
+      templates: Object.keys(remoteTemplates).length ? remoteTemplates : state.templates,
+    };
+    persist({ remote: false });
+    renderAll();
+    if (!options.silent) document.querySelector("#syncStatus").textContent = "Daten aus Supabase geladen.";
+  } catch (error) {
+    document.querySelector("#syncStatus").textContent = `Laden fehlgeschlagen: ${error.message}`;
+  }
+}
+
+async function throwOnError(query) {
+  const { error } = await query;
+  if (error) throw error;
+}
+
+function toDbLead(lead) {
+  return {
+    id: lead.id,
+    company: lead.company || "",
+    country: lead.country || "",
+    region: lead.region || "",
+    industry: lead.industry || "",
+    email: lead.email || "",
+    phone: lead.phone || "",
+    contact: lead.contact || "",
+    source: lead.source || "",
+    signal: lead.signal || "",
+    status: lead.status || "Neu",
+    follow_up: lead.followUp || null,
+    language: lead.language || "DE",
+    team_size: Number(lead.teamSize || 0),
+    target_region: lead.targetRegion || "",
+    notes: lead.notes || "",
+  };
+}
+
+function fromDbLead(row) {
+  return {
+    id: row.id,
+    company: row.company,
+    country: row.country,
+    region: row.region,
+    industry: row.industry,
+    email: row.email,
+    phone: row.phone,
+    contact: row.contact,
+    source: row.source,
+    signal: row.signal,
+    status: row.status,
+    followUp: row.follow_up,
+    language: row.language,
+    teamSize: row.team_size,
+    targetRegion: row.target_region,
+    notes: row.notes,
+  };
+}
+
+function toDbApartment(apt) {
+  return {
+    id: apt.id,
+    name: apt.name || "",
+    city: apt.city || "",
+    region: apt.region || "",
+    beds: Number(apt.beds || 0),
+    bedrooms: Number(apt.bedrooms || 0),
+    parking: apt.parking || "",
+    status: apt.status || "",
+  };
+}
+
+function fromDbApartment(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    city: row.city,
+    region: row.region,
+    beds: row.beds,
+    bedrooms: row.bedrooms,
+    parking: row.parking,
+    status: row.status,
+  };
+}
+
+function templatesFromRows(rows) {
+  return rows.reduce((acc, row) => {
+    acc[row.language] = { subject: row.subject, body: row.body };
+    return acc;
+  }, {});
 }
 
 async function copyText(text) {

@@ -22,4 +22,19 @@ Dann im Browser oeffnen:
 http://127.0.0.1:4173/index.html
 ```
 
-Die erste Version speichert Daten lokal im Browser. Eine echte Datenbank, Gmail-Anbindung und GitHub-Deployment sind die naechsten Ausbaustufen.
+Die App laeuft auf GitHub Pages und kann lokal im Browser speichern. Fuer Dauerbetrieb kann Supabase verbunden werden.
+
+## Dauerbetrieb
+
+Siehe:
+
+- `docs/dauerbetrieb.md`
+- `supabase/schema.sql`
+
+Kurzfassung:
+
+1. Supabase-Projekt erstellen.
+2. `supabase/schema.sql` im SQL Editor ausfuehren.
+3. Project URL und anon public key im Bereich `System` der App eintragen.
+4. Per Magic Link mit `info@spacestays.de` einloggen.
+5. Lokale Startdaten in Supabase speichern.
